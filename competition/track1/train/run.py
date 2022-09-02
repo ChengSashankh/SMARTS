@@ -3,6 +3,7 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import argparse
 import warnings
+import sys
 from datetime import datetime
 from itertools import cycle
 from pathlib import Path
@@ -12,10 +13,14 @@ import gym
 import stable_baselines3 as sb3lib
 import torch as th
 from ruamel.yaml import YAML
-from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
+from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from train import env as multi_scenario_env
-import network
+
+# To import submission folder
+sys.path.insert(0, str(Path(__file__).parents[1]))
+
+from submission import network
 
 print("\nTorch cuda is available: ", th.cuda.is_available(), "\n")
 warnings.simplefilter("ignore", category=DeprecationWarning)
