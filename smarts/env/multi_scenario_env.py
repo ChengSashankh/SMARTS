@@ -325,11 +325,25 @@ class _LimitTargetPose(gym.Wrapper):
             limited_actions[agent_name] = self._limit(
                 name=agent_name,
                 action=agent_action,
-                prev_coord=self._prev_obs[agent_name]["pos"],
+                prev_coord=self._prev_obs[agent_name]["pos"].position[:2],
+                prev_speed=self._prev_obs[agent_name]["speed"],
             )
 
         out = self.env.step(limited_actions)
         self._prev_obs = self._store(obs=out[0])
+
+        print("after------------------------------------------------")
+        print("pos", self._prev_obs['Agent_0']["pos"].position)
+        print("speed", self._prev_obs['Agent_0']["pos"].speed)
+        print("heading", self._prev_obs['Agent_0']["pos"].heading)
+        print("vel", self._prev_obs['Agent_0']["pos"].linear_velocity)
+        print("accel", self._prev_obs['Agent_0']["pos"].linear_acceleration)
+        print("jerk", self._prev_obs['Agent_0']["pos"].linear_jerk)
+        # print(self._prev_obs['Agent_0']["pos"].angular_velocity)
+        # print(self._prev_obs['Agent_0']["pos"].angular_acceleration)
+        # print(self._prev_obs['Agent_0']["pos"].angular_jerk)
+        print("------------------------------------------------")
+
         return out
 
     def reset(self, **kwargs) -> Dict[str, Any]:
@@ -340,18 +354,31 @@ class _LimitTargetPose(gym.Wrapper):
         """
         obs = self.env.reset(**kwargs)
         self._prev_obs = self._store(obs=obs)
+
+        print("reset------------------------------------------------")
+        print("pos", self._prev_obs['Agent_0']["pos"].position)
+        print("speed", self._prev_obs['Agent_0']["pos"].speed)
+        print("heading", self._prev_obs['Agent_0']["pos"].heading)
+        print("vel", self._prev_obs['Agent_0']["pos"].linear_velocity)
+        print("accel", self._prev_obs['Agent_0']["pos"].linear_acceleration)
+        print("jerk", self._prev_obs['Agent_0']["pos"].linear_jerk)
+        # print(self._prev_obs['Agent_0']["pos"].angular_velocity)
+        # print(self._prev_obs['Agent_0']["pos"].angular_acceleration)
+        # print(self._prev_obs['Agent_0']["pos"].angular_jerk)
+        print("------------------------------------------------")
         return obs
 
     def _store(self, obs: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         filtered_obs: Dict[str, Dict[str, Any]] = {}
         for agent_name, agent_obs in obs.items():
             filtered_obs[agent_name] = {
-                "pos": copy.deepcopy(agent_obs.ego_vehicle_state.position[:2])
+                "pos": copy.deepcopy(agent_obs.ego_vehicle_state),
+                "speed": copy.deepcopy(agent_obs.ego_vehicle_state.speed),
             }
         return filtered_obs
 
     def _limit(
-        self, name: str, action: np.ndarray, prev_coord: np.ndarray
+        self, name: str, action: np.ndarray, prev_coord: np.ndarray, prev_speed: float
     ) -> np.ndarray:
         """Set time delta and limit Euclidean distance travelled in TargetPose action space.
 
@@ -364,12 +391,12 @@ class _LimitTargetPose(gym.Wrapper):
             np.ndarray: Agent's TargetPose action which has fixed time-delta and constrained next xy coordinate.
         """
 
+        max_speed = 28  # Maximum speed = 28m/s = 100.8 km/h.
+        max_accel = 1.5 * 9.8  # Maximum acceleration = 14.7m/s^2 
         time_delta = 0.1
         limited_action = np.array(
             [action[0], action[1], action[2], time_delta], dtype=np.float32
         )
-        speed_max = 28  # 28m/s = 100.8 km/h. Maximum speed should be >0.
-        dist_max = speed_max * time_delta
 
         # Set time-delta
         if not math.isclose(action[3], time_delta, abs_tol=1e-3):
@@ -386,15 +413,30 @@ class _LimitTargetPose(gym.Wrapper):
         next_coord = action[:2]
         vector = next_coord - prev_coord
         dist = np.linalg.norm(vector)
-        if dist > dist_max:
+
+        # Current speed and current acceleration
+        cur_speed = dist/time_delta
+        cur_accel = (cur_speed - prev_speed)/time_delta
+     
+        print("cur_speed", cur_speed, "cur_accel", cur_accel)
+        if dist > 0 and (cur_speed > max_speed or abs(cur_accel) > max_accel):
+            # Maximum distance constrained by max speed
+            max_speed_dist = max_speed * time_delta
+            # Maximum distance constrained by max acceleration 
+            next_speed = math.copysign(max_accel, cur_accel) * time_delta + prev_speed
+            max_accel_dist = next_speed * time_delta
+            # Choose the minimum of the two distances
+            print("speed dist ", max_speed_dist, " accel dist ", max_accel_dist)
+            max_dist = min(max_speed_dist, max_accel_dist)
+            # Clip the next xy coordinates in TargetPose action
             unit_vector = vector / dist
-            limited_action[0], limited_action[1] = prev_coord + dist_max * unit_vector
+            limited_action[0], limited_action[1] = prev_coord + max_dist * unit_vector
             logger.warning(
-                "%s: Allowed max speed=%s, but got speed=%s. Next x-coordinate "
-                "and y-coordinate automatically changed from %s to %s.",
+                "%s: Allowed max linear distance=%s, but got linear distance=%s. "
+                "Next x and y coordinates automatically changed from %s to %s.",
                 name,
-                speed_max,
-                dist / time_delta,
+                max_dist,
+                dist,
                 next_coord,
                 limited_action[:2],
             )
