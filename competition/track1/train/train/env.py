@@ -14,7 +14,7 @@ from smarts.env.wrappers.frame_stack import FrameStack
 from smarts.env.wrappers.single_agent import SingleAgent
 
 # To import submission folder
-sys.path.insert(0, str(Path(__file__).parents[1]))
+sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from submission.action import Action as DiscreteAction
 from submission.observation import Concatenate, FilterObs, SaveObs

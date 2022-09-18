@@ -49,11 +49,18 @@ class FilterObs(gym.ObservationWrapper):
             {
                 agent_id: gym.spaces.Dict(
                     {
+                        # "rgb": gym.spaces.Box(
+                        #     low=0,
+                        #     high=255,
+                        #     shape=(agent_obs_space["rgb"].shape[-1],)
+                        #     + agent_obs_space["rgb"].shape[:-1],
+                        #     dtype=np.uint8,
+                        # ),
                         "rgb": gym.spaces.Box(
                             low=0,
                             high=255,
-                            shape=(agent_obs_space["rgb"].shape[-1],)
-                            + agent_obs_space["rgb"].shape[:-1],
+                            shape=(agent_obs_space["ogm"].shape[-1],)
+                            + agent_obs_space["ogm"].shape[:-1],
                             dtype=np.uint8,
                         ),
                         "goal_distance": gym.spaces.Box(
@@ -116,10 +123,44 @@ class FilterObs(gym.ObservationWrapper):
             goal_heading = (goal_heading + np.pi) % (2 * np.pi) - np.pi
             goal_heading = np.array([[goal_heading]], dtype=np.float32)
 
+
+            # Channel first ogm
+            ogm = agent_obs["ogm"]
+            ogm = ogm.transpose(2, 0, 1)
+
+            # Superimpose waypoints
+            wps = agent_obs["waypoints"]["pos"][0:3, 1:4, 0:3]
+            wps_stacked = np.reshape(wps, newshape=(-1,3))
+            wps_unique = np.unique(wps_stacked, axis=0)
+            wps_delta = wps_unique - ego_pos
+            wps_rotated = rotate_3d(wps_delta, theta=ego_heading)
+
+
+            print("ego ",ego_pos)
+            print("wps ",wps)
+            print("stcaked ",wps_stacked)
+            print("unique ",wps_unique)
+            print("delta ",wps_delta)
+            print("rotated ",wps_rotated)
+
+            # math.floor(w / 2 - 3.68 / 2 / res),
+            # math.ceil(w / 2 + 3.68 / 2 / res),
+            # math.floor(h / 2 - 1.47 / 2 / res),
+            # math.ceil(h / 2 + 1.47 / 2 / res),
+
+
+            print("------------------------------------------------------------")
+            from .util import plotter3d
+            plotter3d(ogm, rgb_gray=1, channel_order="first", pause=0)
+            plotter3d(rgb, rgb_gray=3, channel_order="first", pause=0)
+
+
+
+
             wrapped_obs.update(
                 {
                     agent_id: {
-                        "rgb": np.uint8(rgb),
+                        "rgb": np.uint8(ogm),
                         "goal_distance": goal_distance,
                         "goal_heading": goal_heading,
                     }
@@ -127,6 +168,27 @@ class FilterObs(gym.ObservationWrapper):
             )
 
         return wrapped_obs
+
+
+def rotate_3d(points:np.ndarray, theta=0):
+    """A counterclockwise rotation by an angle θ about the z-axis.
+
+    Args:
+        p (_type_): _description_
+        origin (tuple, optional): _description_. Defaults to (0, 0).
+        angle (int, optional): Angle in radians. Defaults to 0.
+
+    Returns:
+        _type_: _description_
+    """
+    ct, st = np.cos(theta), np.sin(theta)
+    R = np.matrix([[ct, -st, 0],
+                   [st,  ct, 0],
+                   [ 0,   0, 1]])
+    print(points.shape,"shapeeeeeeeeeeeeeeeeee")
+    print(points[0].shape,"shapeeeeeeeeeeeeeeeeee00000")
+    rotated_points = (R.dot(points.T)).T
+    return rotated_points
 
 
 class Concatenate(gym.ObservationWrapper):
