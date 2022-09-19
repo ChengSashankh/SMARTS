@@ -49,18 +49,11 @@ class FilterObs(gym.ObservationWrapper):
             {
                 agent_id: gym.spaces.Dict(
                     {
-                        # "rgb": gym.spaces.Box(
-                        #     low=0,
-                        #     high=255,
-                        #     shape=(agent_obs_space["rgb"].shape[-1],)
-                        #     + agent_obs_space["rgb"].shape[:-1],
-                        #     dtype=np.uint8,
-                        # ),
                         "rgb": gym.spaces.Box(
                             low=0,
                             high=255,
-                            shape=(agent_obs_space["ogm"].shape[-1],)
-                            + agent_obs_space["ogm"].shape[:-1],
+                            shape=(agent_obs_space["rgb"].shape[-1],)
+                            + agent_obs_space["rgb"].shape[:-1],
                             dtype=np.uint8,
                         ),
                         "goal_distance": gym.spaces.Box(
@@ -81,6 +74,15 @@ class FilterObs(gym.ObservationWrapper):
             }
         )
 
+        from smarts.core.colors import Colors
+        from smarts.core.colors import SceneColors
+        self._wps_color = np.array(Colors.GreenTransparent.value[0:3]) * 255
+        self._social_color = np.array(SceneColors.SocialVehicle.value[0:3]) * 255
+        self._res = {} # meters/pixels
+        for agent_name, agent_specs in env.agent_specs.items():
+            self._res[agent_name] = agent_specs.interface.rgb.resolution
+
+
     def observation(self, obs: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         """Adapts the wrapped environment's observation.
 
@@ -88,10 +90,6 @@ class FilterObs(gym.ObservationWrapper):
         """
         wrapped_obs = {}
         for agent_id, agent_obs in obs.items():
-            # Channel first rgb
-            rgb = agent_obs["rgb"]
-            rgb = rgb.transpose(2, 0, 1)
-
             # Distance between ego and goal.
             goal_distance = np.array(
                 [
@@ -123,44 +121,34 @@ class FilterObs(gym.ObservationWrapper):
             goal_heading = (goal_heading + np.pi) % (2 * np.pi) - np.pi
             goal_heading = np.array([[goal_heading]], dtype=np.float32)
 
-
-            # Channel first ogm
-            ogm = agent_obs["ogm"]
-            ogm = ogm.transpose(2, 0, 1)
+            # Channel first rgb
+            rgb = agent_obs["rgb"]
+            h, w, _ = rgb.shape
 
             # Superimpose waypoints
-            wps = agent_obs["waypoints"]["pos"][0:3, 1:4, 0:3]
+            wps = agent_obs["waypoints"]["pos"][0:3, 3:20, 0:3]
             wps_stacked = np.reshape(wps, newshape=(-1,3))
             wps_unique = np.unique(wps_stacked, axis=0)
             wps_delta = wps_unique - ego_pos
-            wps_rotated = rotate_3d(wps_delta, theta=ego_heading)
+            wps_rotated = rotate_axes(wps_delta, theta=ego_heading)
+            wps_pixels = wps_rotated / np.array([self._res[agent_id], self._res[agent_id], self._res[agent_id]])
+            wps_overlay = np.array([w/2, h/2, 0]) + wps_pixels*np.array([1,-1,1])
+            wps_rint = np.rint(wps_overlay).astype(np.uint8)
 
+            for point in wps_rint:
+                img_x, img_y = point[0],point[1]
+                if not all(rgb[img_y, img_x,:] == self._social_color):
+                    rgb[img_y,img_x,:] = self._wps_color
+            rgb = rgb.transpose(2, 0, 1)
 
-            print("ego ",ego_pos)
-            print("wps ",wps)
-            print("stcaked ",wps_stacked)
-            print("unique ",wps_unique)
-            print("delta ",wps_delta)
-            print("rotated ",wps_rotated)
-
-            # math.floor(w / 2 - 3.68 / 2 / res),
-            # math.ceil(w / 2 + 3.68 / 2 / res),
-            # math.floor(h / 2 - 1.47 / 2 / res),
-            # math.ceil(h / 2 + 1.47 / 2 / res),
-
-
-            print("------------------------------------------------------------")
-            from .util import plotter3d
-            plotter3d(ogm, rgb_gray=1, channel_order="first", pause=0)
-            plotter3d(rgb, rgb_gray=3, channel_order="first", pause=0)
-
-
-
+            # print("------------------------------------------------------------")
+            # from .util import plotter3d
+            # plotter3d(rgb, rgb_gray=3, channel_order="first", pause=0)
 
             wrapped_obs.update(
                 {
                     agent_id: {
-                        "rgb": np.uint8(ogm),
+                        "rgb": np.uint8(rgb),
                         "goal_distance": goal_distance,
                         "goal_heading": goal_heading,
                     }
@@ -170,23 +158,22 @@ class FilterObs(gym.ObservationWrapper):
         return wrapped_obs
 
 
-def rotate_3d(points:np.ndarray, theta=0):
-    """A counterclockwise rotation by an angle θ about the z-axis.
+def rotate_axes(points:np.ndarray, theta:np.float)->np.ndarray:
+    """A counterclockwise rotation of the x-y axes by an angle theta θ about
+    the z-axis.
 
     Args:
-        p (_type_): _description_
-        origin (tuple, optional): _description_. Defaults to (0, 0).
-        angle (int, optional): Angle in radians. Defaults to 0.
+        p (np.ndarray): x,y,z coordinates in original axes. Shape = (n,3).
+        theta (np.float): Axes rotation angle in radians.
 
     Returns:
-        _type_: _description_
+        np.ndarray: x,y,z coordinates in rotated axes. Shape = (n,3).
     """
+    theta = (theta + np.pi) % (2 * np.pi) - np.pi
     ct, st = np.cos(theta), np.sin(theta)
-    R = np.matrix([[ct, -st, 0],
-                   [st,  ct, 0],
-                   [ 0,   0, 1]])
-    print(points.shape,"shapeeeeeeeeeeeeeeeeee")
-    print(points[0].shape,"shapeeeeeeeeeeeeeeeeee00000")
+    R = np.array([[ ct, st, 0],
+                  [-st, ct, 0],
+                  [  0,  0, 1]])
     rotated_points = (R.dot(points.T)).T
     return rotated_points
 
