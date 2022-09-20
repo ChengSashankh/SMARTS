@@ -121,5 +121,3 @@ def load_pkl(file):
     plotter3d(rgb, rgb_gray=1, pause=0, channel_order="last")
     rgb = data[19.7].drivable_area_grid_map.data
     plotter3d(rgb, rgb_gray=1, pause=0, channel_order="last")
-
-# python3.8 ./examples/traffic_histories_to_observations.py /home/adai/workspace/competition_bundle/eval_scenarios/naturalistic/co2-agents_1 --output_dir=./examples/output --headless

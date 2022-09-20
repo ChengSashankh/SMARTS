@@ -56,6 +56,14 @@ def _discrete() -> Tuple[Callable[[Dict[str, int]], Dict[str, np.ndarray]], gym.
     ) -> Dict[str, np.ndarray]:
         wrapped_obs = {}
         for agent_id, agent_action in action.items():
+
+            # action_input = input('What is action?\n')
+            # while not (action_input.isnumeric() and (
+            #     int(action_input)==0 or int(action_input)==1 or
+            #     int(action_input)==2 or int(action_input)==3)):
+            #     action_input = input('What is action?\n')
+            # agent_action = int(action_input)
+
             new_heading = saved_obs[agent_id]["heading"] + action_map[agent_action][1]
             new_heading = (new_heading + np.pi) % (2 * np.pi) - np.pi
 

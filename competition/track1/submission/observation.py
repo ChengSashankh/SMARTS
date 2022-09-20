@@ -76,12 +76,12 @@ class FilterObs(gym.ObservationWrapper):
 
         from smarts.core.colors import Colors
         from smarts.core.colors import SceneColors
+
         self._wps_color = np.array(Colors.GreenTransparent.value[0:3]) * 255
         self._social_color = np.array(SceneColors.SocialVehicle.value[0:3]) * 255
-        self._res = {} # meters/pixels
+        self._res = {}  # meters/pixels
         for agent_name, agent_specs in env.agent_specs.items():
             self._res[agent_name] = agent_specs.interface.rgb.resolution
-
 
     def observation(self, obs: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         """Adapts the wrapped environment's observation.
@@ -127,24 +127,29 @@ class FilterObs(gym.ObservationWrapper):
 
             # Superimpose waypoints
             wps = agent_obs["waypoints"]["pos"][0:3, 3:20, 0:3]
-            wps_stacked = np.reshape(wps, newshape=(-1,3))
-            wps_unique = np.unique(wps_stacked, axis=0)           
-            mask = [False if all(point==np.zeros(3,)) else True for point in wps_unique]
-            wps_nonzero = wps_unique[mask]
-            wps_delta = wps_nonzero - ego_pos
-            wps_rotated = rotate_axes(wps_delta, theta=ego_heading)
-            wps_pixels = wps_rotated / np.array([self._res[agent_id], self._res[agent_id], self._res[agent_id]])
-            wps_overlay = np.array([w/2, h/2, 0]) + wps_pixels*np.array([1,-1,1])
-            wps_rint = np.rint(wps_overlay).astype(np.uint8)
-
-            for point in wps_rint:
-                img_x, img_y = point[0],point[1]
-                if not all(rgb[img_y, img_x,:] == self._social_color):
-                    rgb[img_y,img_x,:] = self._wps_color
+            for path in wps[:]:
+                wps_rint = _wps_to_pixels(
+                    wps=path,
+                    ego_pos=ego_pos,
+                    ego_heading=ego_heading,
+                    w=w,
+                    h=h,
+                    res=self._res[agent_id],
+                )
+                for point in wps_rint:
+                    img_x, img_y = point[0], point[1]
+                    if img_x < 0 or img_x >= w or img_y < 0 or img_y >= h:
+                        # Ignore waypoints which lie outside the rgb image.
+                        continue
+                    if all(rgb[img_y, img_x, :] == self._social_color):
+                        # Ignore waypoints in the current path which lie ahead of an obstacle.
+                        break
+                    rgb[img_y, img_x, :] = self._wps_color
             rgb = rgb.transpose(2, 0, 1)
 
-            from .util import plotter3d
-            plotter3d(rgb, rgb_gray=3, channel_order="first", pause=0)
+            # from .util import plotter3d
+
+            # plotter3d(rgb, rgb_gray=3, channel_order="first", pause=0)
 
             wrapped_obs.update(
                 {
@@ -159,12 +164,23 @@ class FilterObs(gym.ObservationWrapper):
         return wrapped_obs
 
 
-def rotate_axes(points:np.ndarray, theta:np.float)->np.ndarray:
+def _wps_to_pixels(wps:np.ndarray, ego_pos:np.ndarray, ego_heading:float, w:float, h:float, res:float) -> np.ndarray:
+    mask = [False if all(point == np.zeros(3,)) else True for point in wps]
+    wps_nonzero = wps[mask]
+    wps_delta = wps_nonzero - ego_pos
+    wps_rotated = rotate_axes(wps_delta, theta=ego_heading)
+    wps_pixels = wps_rotated / np.array([res, res, res])
+    wps_overlay = np.array([w / 2, h / 2, 0]) + wps_pixels * np.array([1, -1, 1])
+    wps_rint = np.rint(wps_overlay).astype(np.uint8)
+    return wps_rint
+
+
+def rotate_axes(points: np.ndarray, theta: np.float) -> np.ndarray:
     """A counterclockwise rotation of the x-y axes by an angle theta θ about
     the z-axis.
 
     Args:
-        p (np.ndarray): x,y,z coordinates in original axes. Shape = (n,3).
+        points (np.ndarray): x,y,z coordinates in original axes. Shape = (n,3).
         theta (np.float): Axes rotation angle in radians.
 
     Returns:
@@ -172,8 +188,8 @@ def rotate_axes(points:np.ndarray, theta:np.float)->np.ndarray:
     """
     theta = (theta + np.pi) % (2 * np.pi) - np.pi
     ct, st = np.cos(theta), np.sin(theta)
-    R = np.array([[ ct, st, 0],
-                  [-st, ct, 0],
+    R = np.array([[ ct, st, 0], 
+                  [-st, ct, 0], 
                   [  0,  0, 1]])
     rotated_points = (R.dot(points.T)).T
     return rotated_points
