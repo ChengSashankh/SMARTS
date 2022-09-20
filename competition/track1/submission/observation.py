@@ -129,11 +129,14 @@ class FilterObs(gym.ObservationWrapper):
             wps = agent_obs["waypoints"]["pos"][0:3, 3:20, 0:3]
             wps_stacked = np.reshape(wps, newshape=(-1,3))
             wps_unique = np.unique(wps_stacked, axis=0)
-            wps_delta = wps_unique - ego_pos
+            wps_nonzero = wps_unique[all(wps_unique[0] != 0, axis=1)]
+            wps_delta = wps_nonzero - ego_pos
             wps_rotated = rotate_axes(wps_delta, theta=ego_heading)
             wps_pixels = wps_rotated / np.array([self._res[agent_id], self._res[agent_id], self._res[agent_id]])
             wps_overlay = np.array([w/2, h/2, 0]) + wps_pixels*np.array([1,-1,1])
             wps_rint = np.rint(wps_overlay).astype(np.uint8)
+
+            print("rint", wps_rint)
 
             for point in wps_rint:
                 img_x, img_y = point[0],point[1]
@@ -141,9 +144,8 @@ class FilterObs(gym.ObservationWrapper):
                     rgb[img_y,img_x,:] = self._wps_color
             rgb = rgb.transpose(2, 0, 1)
 
-            # print("------------------------------------------------------------")
-            # from .util import plotter3d
-            # plotter3d(rgb, rgb_gray=3, channel_order="first", pause=0)
+            from .util import plotter3d
+            plotter3d(rgb, rgb_gray=3, channel_order="first", pause=0)
 
             wrapped_obs.update(
                 {
