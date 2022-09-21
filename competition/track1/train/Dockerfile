@@ -39,7 +39,7 @@ RUN pip install --upgrade pip wheel
 RUN git config --global http.sslVerify false
 
 # Install requirements.txt .
-COPY ./competition/track1/train/requirements.txt /tmp/requirements.txt
+COPY ./competition/track1/submission/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 # Copy source files and install.
