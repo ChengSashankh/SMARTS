@@ -125,12 +125,12 @@ class FilterObs(gym.ObservationWrapper):
             # Get rgb image and remove road
             rgb = agent_obs["rgb"]
             h, w, _ = rgb.shape
-            rgb_noroad = _remove_road(rgb, self._road_color)
+            rgb_noroad = remove_colour(rgb=rgb, colour=self._road_color)
 
-            # Superimpose waypoints onto rgb
-            wps = agent_obs["waypoints"]["pos"][0:3, 3:20, 0:3]
+            # Superimpose waypoints onto rgb image
+            wps = agent_obs["waypoints"]["pos"][0:3, 3:, 0:3]
             for path in wps[:]:
-                wps_rint = _wps_to_pixels(
+                wps_valid = wps_to_pixels(
                     wps=path,
                     ego_pos=ego_pos,
                     ego_heading=ego_heading,
@@ -138,11 +138,8 @@ class FilterObs(gym.ObservationWrapper):
                     h=h,
                     res=self._res[agent_id],
                 )
-                for point in wps_rint:
+                for point in wps_valid:
                     img_x, img_y = point[0], point[1]
-                    if img_x < 0 or img_x >= w or img_y < 0 or img_y >= h:
-                        # Ignore waypoints which lie outside the rgb image.
-                        continue
                     if all(rgb_noroad[img_y, img_x, :] == self._social_color):
                         # Ignore waypoints in the current path which lie ahead of an obstacle.
                         break
@@ -152,7 +149,7 @@ class FilterObs(gym.ObservationWrapper):
             rgb_noroad = rgb_noroad.transpose(2, 0, 1)
 
             # from .util import plotter3d
-            # plotter3d(rgb, rgb_gray=3, channel_order="last", pause=0, name="RGB")
+            # plotter3d(rgb, rgb_gray=3, channel_order="last", pause=0.5, name="RGB")
             # plotter3d(rgb_noroad, rgb_gray=3, channel_order="first", pause=0, name="NOROAD")
 
             wrapped_obs.update(
@@ -168,16 +165,40 @@ class FilterObs(gym.ObservationWrapper):
         return wrapped_obs
 
 
-def _remove_road(rgb:np.ndarray, road_colour:np.ndarray)->np.ndarray:
-    assert road_colour.shape == (3,), (
-        f"Expected road_colour to be of shape (3,), but got {road_colour.shape}.")
-    rc = road_colour.reshape((1,1,3))   
+def remove_colour(rgb:np.ndarray, colour:np.ndarray)->np.ndarray:
+    """Convert pixels of value `colour` to zeros in the received RGB image.
+
+    Args:
+        rgb (np.ndarray): RGB image. Shape = (m,n,3).
+        colour (np.ndarray): Colour to be removed from the RGB image. Shape = (3,).
+
+    Returns:
+        np.ndarray: RGB image with `colour` pixels changed to zeros. Shape = (m,n,3).
+    """
+    assert colour.shape == (3,), (
+        f"Expected road_colour to be of shape (3,), but got {colour.shape}.")
+    rc = colour.reshape((1,1,3))   
     zeros = np.zeros_like(rgb)
     result = np.where((rgb==rc).all(axis=-1)[...,None], zeros, rgb)
     return result
 
 
-def _wps_to_pixels(wps:np.ndarray, ego_pos:np.ndarray, ego_heading:float, w:float, h:float, res:float) -> np.ndarray:
+def wps_to_pixels(wps:np.ndarray, ego_pos:np.ndarray, ego_heading:float, w:int, h:int, res:float) -> np.ndarray:
+    """Converts waypoints into pixel coordinates in order to superimpose the
+    waypoints onto the RGB image.
+
+    Args:
+        wps (np.ndarray): Waypoints for a single route. Shape (n,3).
+        ego_pos (np.ndarray): Ego position. Shape = (3,).
+        ego_heading (float): Ego heading in radians.
+        w (int): Width of RGB image
+        h (int): Height of RGB image.
+        res (float): Resolution of RGB image in meters/pixels. Computed as 
+            ground_size/image_size. 
+
+    Returns:
+        np.ndarray: Array of waypoint coordinates on the RGB image. Shape = (m,3).
+    """
     mask = [False if all(point == np.zeros(3,)) else True for point in wps]
     wps_nonzero = wps[mask]
     wps_delta = wps_nonzero - ego_pos
@@ -185,7 +206,8 @@ def _wps_to_pixels(wps:np.ndarray, ego_pos:np.ndarray, ego_heading:float, w:floa
     wps_pixels = wps_rotated / np.array([res, res, res])
     wps_overlay = np.array([w / 2, h / 2, 0]) + wps_pixels * np.array([1, -1, 1])
     wps_rint = np.rint(wps_overlay).astype(np.uint8)
-    return wps_rint
+    wps_valid = wps_rint[(wps_rint[:,0] >= 0) & (wps_rint[:,0] < w) & (wps_rint[:,1] >= 0) & (wps_rint[:,1] < h)] 
+    return wps_valid
 
 
 def rotate_axes(points: np.ndarray, theta: np.float) -> np.ndarray:
