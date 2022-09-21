@@ -24,10 +24,10 @@ class CombinedExtractor(BaseFeaturesExtractor):
             if key == "rgb":
                 extractors[key] = NatureCNN(subspace, features_dim=cnn_output_dim)
                 total_concat_size += cnn_output_dim
-            else:
-                # The observation key is a vector, flatten it if needed
-                extractors[key] = nn.Flatten()
-                total_concat_size += get_flattened_obs_dim(subspace)
+            # else:
+            #     # The observation key is a vector, flatten it if needed
+            #     extractors[key] = nn.Flatten()
+            #     total_concat_size += get_flattened_obs_dim(subspace)
 
         self.extractors = nn.ModuleDict(extractors)
 
@@ -47,7 +47,7 @@ def combined_extractor(config):
     kwargs["policy"] = "MultiInputPolicy"
     kwargs["policy_kwargs"] = dict(
         features_extractor_class=CombinedExtractor,
-        features_extractor_kwargs=dict(cnn_output_dim=128),
+        features_extractor_kwargs=dict(cnn_output_dim=256),
         net_arch=[],
     )
     kwargs["target_kl"] = 0.1
