@@ -79,6 +79,7 @@ class FilterObs(gym.ObservationWrapper):
 
         self._wps_color = np.array(Colors.GreenTransparent.value[0:3]) * 255
         self._social_color = np.array(SceneColors.SocialVehicle.value[0:3]) * 255
+        self._road_color = np.array(SceneColors.Road.value[0:3]) * 255
         self._res = {}  # meters/pixels
         for agent_name, agent_specs in env.agent_specs.items():
             self._res[agent_name] = agent_specs.interface.rgb.resolution
@@ -121,11 +122,12 @@ class FilterObs(gym.ObservationWrapper):
             goal_heading = (goal_heading + np.pi) % (2 * np.pi) - np.pi
             goal_heading = np.array([[goal_heading]], dtype=np.float32)
 
-            # Channel first rgb
+            # Get rgb image and remove road
             rgb = agent_obs["rgb"]
             h, w, _ = rgb.shape
+            rgb_noroad = _remove_road(rgb, self._road_color)
 
-            # Superimpose waypoints
+            # Superimpose waypoints onto rgb
             wps = agent_obs["waypoints"]["pos"][0:3, 3:20, 0:3]
             for path in wps[:]:
                 wps_rint = _wps_to_pixels(
@@ -141,20 +143,22 @@ class FilterObs(gym.ObservationWrapper):
                     if img_x < 0 or img_x >= w or img_y < 0 or img_y >= h:
                         # Ignore waypoints which lie outside the rgb image.
                         continue
-                    if all(rgb[img_y, img_x, :] == self._social_color):
+                    if all(rgb_noroad[img_y, img_x, :] == self._social_color):
                         # Ignore waypoints in the current path which lie ahead of an obstacle.
                         break
-                    rgb[img_y, img_x, :] = self._wps_color
-            rgb = rgb.transpose(2, 0, 1)
+                    rgb_noroad[img_y, img_x, :] = self._wps_color
+
+            # Channel first rgb
+            rgb_noroad = rgb_noroad.transpose(2, 0, 1)
 
             # from .util import plotter3d
-
-            # plotter3d(rgb, rgb_gray=3, channel_order="first", pause=0)
+            # plotter3d(rgb, rgb_gray=3, channel_order="last", pause=0, name="RGB")
+            # plotter3d(rgb_noroad, rgb_gray=3, channel_order="first", pause=0, name="NOROAD")
 
             wrapped_obs.update(
                 {
                     agent_id: {
-                        "rgb": np.uint8(rgb),
+                        "rgb": np.uint8(rgb_noroad),
                         "goal_distance": goal_distance,
                         "goal_heading": goal_heading,
                     }
@@ -162,6 +166,15 @@ class FilterObs(gym.ObservationWrapper):
             )
 
         return wrapped_obs
+
+
+def _remove_road(rgb:np.ndarray, road_colour:np.ndarray)->np.ndarray:
+    assert road_colour.shape == (3,), (
+        f"Expected road_colour to be of shape (3,), but got {road_colour.shape}.")
+    rc = road_colour.reshape((1,1,3))   
+    zeros = np.zeros_like(rgb)
+    result = np.where((rgb==rc).all(axis=-1)[...,None], zeros, rgb)
+    return result
 
 
 def _wps_to_pixels(wps:np.ndarray, ego_pos:np.ndarray, ego_heading:float, w:float, h:float, res:float) -> np.ndarray:
