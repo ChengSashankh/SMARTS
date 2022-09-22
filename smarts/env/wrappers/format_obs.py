@@ -274,41 +274,20 @@ class FormatObs(gym.ObservationWrapper):
 
         Note: Users should not directly call this method.
         """
-        try:
-            wrapped_obs = {}
-            for agent_id, agent_obs in obs.items():
-                wrapped_ob = {}
-                for stdob in self._space.keys():
-                    func = globals()[f"_std_{stdob}"]
-                    if stdob == "ego":
-                        val = func(
-                            getattr(agent_obs, self._stdob_to_ob[stdob]),
-                            self._accelerometer,
-                        )
-                    else:
-                        val = func(getattr(agent_obs, self._stdob_to_ob[stdob]))
-                    wrapped_ob.update({stdob: val})
-                wrapped_obs.update({agent_id: wrapped_ob})
-        except:
-            from PIL import Image
-            from pathlib import Path
-            import os
-            print("==========================================")
-            print(f"agent_id: {agent_id}")
-            print(f"obs.ego_vehicle_state.road_id: {agent_obs.ego_vehicle_state.road_id}")
-            print(f"obs.ego_vehicle_state.lane_id: {agent_obs.ego_vehicle_state.lane_id}")
-            print(f"obs.ego_vehicle_state.lane_index: {agent_obs.ego_vehicle_state.lane_index}")
-            print(f"obs.ego_vehicle_state.position: {agent_obs.ego_vehicle_state.position}")
-            print(f"obs.events: {agent_obs.events}")
-
-            rgb_data = agent_obs.top_down_rgb.data
-            img = Image.fromarray(rgb_data, "RGB")
-            cwd = os.getcwd()
-            img.save(str(Path(cwd,"competition","track1","train","logs",f"{agent_id}.png")))
-            print("Finished saving image")
-            print("==========================================")
-            
-            raise
+        wrapped_obs = {}
+        for agent_id, agent_obs in obs.items():
+            wrapped_ob = {}
+            for stdob in self._space.keys():
+                func = globals()[f"_std_{stdob}"]
+                if stdob == "ego":
+                    val = func(
+                        getattr(agent_obs, self._stdob_to_ob[stdob]),
+                        self._accelerometer,
+                    )
+                else:
+                    val = func(getattr(agent_obs, self._stdob_to_ob[stdob]))
+                wrapped_ob.update({stdob: val})
+            wrapped_obs.update({agent_id: wrapped_ob})
 
         return wrapped_obs
 

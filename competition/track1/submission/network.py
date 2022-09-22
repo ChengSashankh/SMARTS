@@ -47,7 +47,7 @@ def combined_extractor(config):
     kwargs["policy"] = "MultiInputPolicy"
     kwargs["policy_kwargs"] = dict(
         features_extractor_class=CombinedExtractor,
-        features_extractor_kwargs=dict(cnn_output_dim=256),
+        features_extractor_kwargs=dict(cnn_output_dim=128),
         net_arch=[],
     )
     kwargs["target_kl"] = 0.1
