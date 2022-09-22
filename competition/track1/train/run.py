@@ -37,6 +37,7 @@ def main(args: argparse.Namespace):
     # Load env config.
     config = config_file["smarts"]
     config["mode"] = args.mode
+    config["head"] = args.head
 
     # Setup logdir.
     if not args.logdir:
@@ -153,6 +154,9 @@ if __name__ == "__main__":
         help="Directory path to saved RL model. Required if `--mode=evaluate`.",
         type=str,
         default=None,
+    )
+    parser.add_argument(
+        "--head", help="Display the simulation in Envision.", action="store_true"
     )
 
     args = parser.parse_args()

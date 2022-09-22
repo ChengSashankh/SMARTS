@@ -72,6 +72,7 @@ def make(
         img_meters=config["img_meters"],
         img_pixels=config["img_pixels"],
         sumo_headless=not config["sumo_gui"],  # If False, enables sumo-gui display.
+        headless=not config["head"],  # If False, enables Envision display.
     )
 
     # Wrap the environment
