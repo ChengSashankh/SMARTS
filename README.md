@@ -1,3 +1,30 @@
+# About
+
+This repository was provided as part of the contest. We attempted different algorithms for self-driving, such as DQN, A2C, PPO and got some cool results:
+
+## Good
+
+![image43](https://github.com/ChengSashankh/SMARTS/assets/15691658/cd1bb9d0-aed2-442d-b717-a7d8944525ff)
+![image13](https://github.com/ChengSashankh/SMARTS/assets/15691658/96a10abb-204c-4118-b4d4-d7a11ebb47c9)
+![image42](https://github.com/ChengSashankh/SMARTS/assets/15691658/6f88c0af-acaa-4712-9b7c-f61a63f8adfb)
+![image18](https://github.com/ChengSashankh/SMARTS/assets/15691658/0f4898c4-f96e-4ed2-874e-2957e5791d64)
+![image17](https://github.com/ChengSashankh/SMARTS/assets/15691658/62c2e283-33f6-4e71-bd68-8c52d5825611)
+
+## Not so good
+
+![image19](https://github.com/ChengSashankh/SMARTS/assets/15691658/994ddb3a-68b9-4db6-b003-44cfdde60269)
+![image29](https://github.com/ChengSashankh/SMARTS/assets/15691658/d1e80a8c-2381-4da7-9653-55e521ce368e)
+![image35](https://github.com/ChengSashankh/SMARTS/assets/15691658/f235126c-67ff-4fc8-a294-5f05b897971b)
+![image2](https://github.com/ChengSashankh/SMARTS/assets/15691658/c15f6e0b-a68b-4c83-a043-a9437e6477b2)
+![image20](https://github.com/ChengSashankh/SMARTS/assets/15691658/298031a7-9911-4bbe-8754-ae1e7feea9f5)
+![image15](https://github.com/ChengSashankh/SMARTS/assets/15691658/8da70da8-7df5-46ca-99ef-32e9826bf39c)
+![image40](https://github.com/ChengSashankh/SMARTS/assets/15691658/c3a0357b-ec4f-4b8a-82a9-6d0100d0aa48)
+![image14](https://github.com/ChengSashankh/SMARTS/assets/15691658/fe4ddd5a-b167-4ae0-a125-9fc3e543b4f1)
+
+
+
+# Contest details
+
 # Welcome to the 2022 NeurIPS Driving SMARTS Competition
 Thank you for your interest in the 2022 NeurIPS Driving SMARTS competition. Please take a look at the [competition site](https://codalab.lisn.upsaclay.fr/competitions/6618).
 
